@@ -1,66 +1,63 @@
-# Validação do VoltHub Mobile
+# Validação e integração do VoltHub Mobile
 
-Contribuição de Amanda — 02/11/2026. Base: `feat/mobile-app`, commit `6dc7428c188d65ba6c360b90e446a02e0af609ea`.
+Contribuição de Amanda — 02/11/2026. Inclui ADR, documentação, evidências Web e correções de integração sobre a `feat/mobile-app` do grupo.
+
+## Como testar no Codespaces
+
+1. Encerre o Expo anterior com **Ctrl+C**.
+2. Na raiz do projeto: `docker compose up -d --build bff-web billing-service` e `docker compose ps -a`. A infraestrutura e os outros serviços também devem estar ativos; para subir tudo pela primeira vez, use `docker compose up -d --build`.
+3. Em `apps/mobile`: `npm ci` e `npm run web:codespaces`.
+4. Abra somente a porta **8084** pela aba Portas; mantenha-a privada. 8083 é o Metro interno e 8081 é o Keycloak.
+5. Faça logout de uma sessão antiga, se necessário, e use **Entrar** com as credenciais acadêmicas pré-preenchidas do realm.
+6. No DevTools, mantenha Network em **No throttling**. Confira login 200, lista 200 e o indicador **API Online**. As chamadas usam a mesma origem, pelo prefixo `/backend`.
+7. Teste lista, detalhe, busca, filtros e favoritos após fechar/reabrir sem limpar dados.
+8. Inicie recarga em um conector disponível. Aguarde eventos WS, encerramento pelo simulador e fatura persistida no histórico. Não espere sempre 48 kWh: esse era o alvo da demonstração local; a energia integrada depende do simulador.
+
+O botão **Explorar demonstração offline** usa o seed e resumo calculado no cliente, identificado como demonstração. Não é autenticação e não comprova integração. Para usuário autenticado, falhas HTTP/rede não são substituídas por dados locais.
+
+## Contratos corrigidos
+
+| Ponto | Comportamento implementado |
+|---|---|
+| CORS | Preflight no BFF, com origens explícitas em `CORS_ORIGINS` e cabeçalhos Content-Type/Authorization |
+| Portas privadas | Gateway Web em 8084 encaminha HTTP e WS ao BFF em 3000; encaminha interface/HMR ao Metro em 8083 |
+| Login | POST `/api/v1/auth/login` troca credenciais no endpoint interno do Keycloak; valida assinatura, emissor e audiência do JWT antes de devolver identidade; resposta sem cache |
+| Falhas de login | Credenciais recusadas → 401; serviço de autenticação indisponível → 502; falha de rede não abre sessão offline |
+| Sessão persistida | Salva expiração e descarta sessão vencida ao inicializar; não implementa refresh automático |
+| Estações | GET lista/detalhe exigem JWT; BFF adapta catálogo do station-service e aplica filtros; detalhe inexistente → 404; resultado vazio é preservado |
+| Token no app | Encaminhado também em filtros e detalhe; usuário real não recebe seed ao falhar a API |
+| Recarga | WS autenticado recebe `hello` antes de criar/iniciar a reserva; eventos correlacionados por conector e sessão; não inventa energia em ausência de leituras |
+| Falha no start | Não marca a reserva como iniciada; tenta cancelar como compensação; sessão já IN_PROGRESS é reaproveitada sem novo start |
+| Fatura | Resumo integrado só por evento do billing ou consulta do histórico; IDs e data de emissão preservados; resumo de demonstração é identificado |
+
+O login mobile mantém o contrato de e-mail/senha e usa Direct Access Grants já habilitado no realm acadêmico (`volthub-web`). O SPA existente continua usando Authorization Code com PKCE. Não foi necessário alterar o realm ou expor Keycloak ao navegador do app.
 
 ## Verificações executadas
 
-| Verificação | Ambiente / resultado |
+Ambiente Linux, Node v24.22.1 / npm 11.9.0.
+
+| Comando | Resultado |
 |---|---|
-| Instalação pelo lockfile | `npm ci --no-audit --no-fund`: concluída; npm apontou aviso de peer dependency de worklets |
-| Lógica existente | `npm test`: 14 casos passaram, 0 falhas |
-| TypeScript | `npm run lint`: passou (`tsc --noEmit`) |
-| Runtime da verificação | Node v24.22.1, npm 11.9.0, Linux |
-| Interface Web | Amanda abriu mapa e concluiu uma sessão local; capturas no README mostram modo offline |
-| Preflight local do BFF | Amanda executou OPTIONS para `/api/v1/auth/login`: HTTP 404, sem cabeçalhos CORS |
-| Build Android / Maestro | Não executados nesta contribuição |
-| Integração completa com os serviços | Não validada; bloqueios abaixo |
+| `npm test --prefix apps/mobile` | 19 casos de domínio/casos de uso/URLs |
+| `npm run test:integration --prefix apps/mobile` | 6 casos: gateway HTTP/WS e stores/repositórios de recarga |
+| `npm run lint --prefix apps/mobile` | TypeScript sem erros |
+| `EXPO_PUBLIC_API_URL=/backend npx expo export --platform web` em apps/mobile | Build Web gerado |
+| `npm test --prefix services/bff-web` | 9 casos: resiliência, preflight, JWT, login, lista/detalhe e filtros |
+| `npm run build --prefix services/bff-web` | Build TypeScript |
+| `npm test --prefix services/billing-service` | 4 casos: regras de cobrança e timestamp do histórico |
+| `npm run build --prefix services/billing-service` | Build TypeScript |
+| `git diff --check` | Sem erros de whitespace |
 
-Os 14 testes já pertenciam ao grupo: 4 de domínio/filtros, 4 de login e 6 de sessão de recarga. Esta contribuição documenta e executa a suíte; não atribui a autoria desses testes a Amanda. Testes com repositórios falsos não comprovam conexão com o backend.
+Testes do BFF usam servidores HTTP locais com JWT realmente assinado/JWKS, em vez de Keycloak e station-service em Docker. Testes do gateway exercitam HTTP e upgrade WebSocket reais. Testes das stores usam os repositórios/casos de uso reais com HTTP/WS/storage substituídos por doubles para verificar falhas e ausência de simulação em sessão autenticada. Não equivalem à execução da stack completa.
 
-## Bloqueios encontrados no contrato app ↔ BFF
+O workflow CI também executa testes do mobile/gateway, TypeScript e build Web. As 14 regras originais já pertenciam ao grupo; esta contribuição acrescenta regressões para os contratos corrigidos.
 
-| Ponto | Evidência no código / efeito | Próxima ação |
-|---|---|---|
-| CORS | `services/bff-web/src/main.ts` não registra CORS; OPTIONS retornou 404 | Configurar origens permitidas e preflight no BFF, com testes, antes de testar pelo Expo Web em outra porta |
-| Login | `HttpAuthRepository` chama POST `/api/v1/auth/login`, ausente no BFF; o SPA do BFF usa Authorization Code com PKCE | Alinhar o fluxo de autenticação do mobile com o Keycloak e o grupo; configurar a URL pública/callbacks para Codespaces |
-| Detalhe | App chama GET `/api/v1/stations/:id`, ausente no BFF; `GetStationByIdUseCase` não encaminha o token opcional | Alinhar o endpoint e propagar a sessão até o repositório |
-| Filtros remotos | `setActiveFilter` chama a API sem token; BFF exige autenticação na lista e não encaminha os filtros para o downstream | Corrigir a propagação de token e definir o contrato dos filtros, ou declarar explicitamente a filtragem local |
-| Origem dos dados | Repositório retorna seed quando a API falha, inclusive em erros HTTP | Conferir respostas da rede e `dataSource`; não usar a lista fixa como evidência de dados reais |
-| Recarga e faturamento | Medidor e resumo podem ser calculados no cliente | Conferir eventos WebSocket e fatura persistida no billing-service; o resumo local não comprova faturamento |
+## Limites e entrega
 
-Esses pontos não foram alterados por este PR de documentação. Habilitar CORS isoladamente não cria a rota de login nem conclui a integração. O login pode entrar em demonstração em caso de erro de rede/CORS, mas mantém erros HTTP, incluindo 404.
-
-## Reproduzir a verificação do navegador
-
-1. Iniciar os serviços na raiz: `docker compose up -d --build` e conferir `docker compose ps -a`.
-2. Usar a porta 8081 para Keycloak e 8083 para Expo. Em `apps/mobile`, configurar `.env.local` a partir de `.env.example`, apontando para o BFF (porta 3000).
-3. Executar `npm run web -- --host lan --port 8083 --clear` e abrir a porta encaminhada indicada.
-4. No DevTools, selecionar **Network → No throttling**, desativar qualquer simulação de Offline e recarregar.
-5. Conferir OPTIONS, login e stations. Não basta o app abrir; uma sessão de demonstração possui token vazio.
-
-Na raiz do Codespace, testar o preflight sem a camada de encaminhamento do GitHub:
-
-```bash
-curl -i -X OPTIONS http://localhost:3000/api/v1/auth/login \
-  -H "Origin: https://${CODESPACE_NAME}-8083.app.github.dev" \
-  -H 'Access-Control-Request-Method: POST' \
-  -H 'Access-Control-Request-Headers: content-type'
-```
-
-Depois de corrigir o BFF, o preflight deve responder com sucesso e autorizar a origem e os cabeçalhos usados pelo app. Se funcionar localmente e falhar apenas pela URL encaminhada, verificar também a autenticação da porta privada do Codespaces.
-
-## Pendências para a entrega do grupo
-
-- [x] ADR do app com framework, estado, alternativas e consequências; proposta sujeita à revisão do grupo.
-- [x] README com `cd`, comandos de execução e link da ADR.
-- [x] Três screenshots reais da versão Web incluídos no README e identificados como offline.
-- [x] Executar testes de lógica existentes (mais de 3 casos) e checagem de tipos.
-- [ ] Concluir e testar os contratos de integração acima com dados retornados pelos serviços.
-- [ ] Testar lista, detalhe, busca, filtros, favoritos e estados carregando/vazio/erro.
-- [ ] Favoritar, fechar e reabrir sem limpar dados; verificar persistência e remoção.
-- [ ] Gerar build Android, instalar e demonstrar em dispositivo; validar acesso ao Metro no build debug.
-- [ ] Registrar capturas das cinco features e resultados no PR, com dispositivo e versão.
-- [ ] Revisar a ADR e integrar esta contribuição na `feat/mobile-app` do repositório do grupo.
-- [ ] Confirmar reserva do tema por issue, integrantes colaboradores, URL no Canvas e apresentação de até 20 minutos.
-
-O enunciado exige dados reais e build mobile; a demonstração Web offline e os testes unitários não substituem essas etapas.
+- A stack Docker completa não foi executada no ambiente desta contribuição (Docker indisponível). Validar os passos acima no Codespaces de Amanda.
+- Parada manual de recarga IN_PROGRESS não existe no backend atual: cancelar só funciona com reserva CONFIRMED. Na interface integrada, o app aguarda encerramento pelo carregador e fatura. A demonstração permite parada local.
+- Se o WS cair, energia não é simulada. Atualize o histórico para recuperar a fatura conhecida pela sessão; não há reconexão automática nem restauração completa de uma recarga após reiniciar o app/BFF.
+- Token vencido requer novo login; não há fluxo de refresh automático. O gateway resolve a Web privada do Codespaces, mas um APK precisa de URL absoluta acessível pelo dispositivo.
+- Maestro e build/instalação Android não foram executados. Os flows usam demonstração explícita por padrão (IDs do seed); login real é opcional com `LIVE_BACKEND=true` e dados compatíveis.
+- Os três screenshots do README são reais, anteriores à correção e em modo offline. Complementar com cinco features, estados carregando/vazio/erro e execução Android.
+- Revisar ADR com o grupo, integrar o PR no repositório do grupo, confirmar issue de reserva do tema/integrantes e entregar a URL no Canvas. A apresentação tem até 20 minutos.

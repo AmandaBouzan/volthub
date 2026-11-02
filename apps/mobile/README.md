@@ -50,7 +50,7 @@ apps/mobile/src/
 | **3** | **Busca por texto** | `SearchBar` filtra instantaneamente por nome do posto, endereço/bairro ou comodidade via `Station.matchesSearch()` |
 | **4** | **Categoria/filtro estruturado** | `FilterChips` filtra por *Vagas Livres*, *Rápido (>50kW)*, *Plug CCS 2* e *Plug Tipo 2* combinando query params reais na API (`?status=AVAILABLE`, `?fastOnly=true`, `?connector=CCS2`) e `FilterStationsUseCase` |
 | **5** | **Favoritos persistidos localmente** | `LocalStorageFavoritesRepository` persiste o `Set` de IDs favoritos via `AsyncStorage` / `localStorage`, sobrevivendo ao fechamento do app |
-| **★** | **Login obrigatório** | `login.tsx` autentica no `POST /api/v1/auth/login` do BFF (Keycloak). As abas só existem com sessão; botão **Sair** no header. Falhas sem resposta HTTP permitem uma sessão de demonstração; erros HTTP são mantidos. A rota de login esperada pelo app ainda não existe no BFF desta branch |
+| **★** | **Login obrigatório** | `login.tsx` autentica no `POST /api/v1/auth/login` do BFF (Keycloak). As abas só existem com sessão; botão **Sair** no header. O BFF troca as credenciais com o Keycloak e verifica o JWT. Falhas de rede/CORS são exibidas como erro; demonstração só pelo botão explícito na tela de login |
 | **★** | **Mapa + Telemetria Ao Vivo** | Aba **Mapa** com pins georreferenciados e aba **Recarga** com medidor circular em tempo real (conectado ao `POST /api/v1/reservations` e WebSocket `/ws` do BFF) |
 
 ---
@@ -86,7 +86,7 @@ npm run lint --prefix apps/mobile
 Os 7 flows em [`flows/`](./flows) cobrem as 5 features e usam a convenção de `testID` da disciplina
 (`item-list-screen`, `item-card-<id>`, `search-input`, `category-chip-<filtro>`, `detail-screen`,
 `detail-title`, `detail-favorite-button`, `detail-back-button`, `tab-favorites`, `favorite-item-<id>`).
-Os cenários usam IDs do seed local. O login admite demonstração quando não recebe resposta HTTP, mas um BFF que responde 404 não ativa esse modo. Os flows precisam de dispositivo/emulador, Maestro instalado e dados compatíveis; não foram executados nesta contribuição.
+Os cenários usam IDs do seed local. Os flows usam o botão explícito de demonstração para manter os IDs do seed. Para autenticação real, use `maestro test -e LIVE_BACKEND=true flows/`, com dados compatíveis. Os flows precisam de dispositivo/emulador, Maestro instalado e dados compatíveis; não foram executados nesta contribuição.
 
 ```bash
 cd apps/mobile          # a partir da raiz do repositório
@@ -115,6 +115,7 @@ Execute os comandos abaixo a partir da raiz do repositório. Use Node.js compat�
 cd apps/mobile
 npm ci
 npm test
+npm run test:integration
 npm run lint
 ```
 
@@ -150,13 +151,34 @@ A variável `EXPO_PUBLIC_API_URL` é incorporada ao cliente, portanto não deve 
 
 ### Navegador e Codespaces
 
-A partir de `apps/mobile`:
+Na raiz do repositório, atualize os serviços alterados por esta contribuição (os demais precisam estar em execução):
+
+```bash
+docker compose up -d --build bff-web billing-service
+docker compose ps -a
+```
+
+Encerre o Expo anterior com **Ctrl+C** no terminal dele. Depois:
+
+```bash
+cd apps/mobile
+npm ci
+npm run web:codespaces
+```
+
+Abra a **porta 8084** pela aba **Portas**. Mantenha as portas privadas. Esse comando inicia o Metro em 8083 e um gateway de desenvolvimento em 8084. Na mesma origem do navegador, `/backend/api/...` e `/backend/ws` chegam ao BFF em `localhost:3000`, sem depender da autenticação de outra porta encaminhada pelo GitHub. O script define `EXPO_PUBLIC_API_URL=/backend` apenas para essa execução e não modifica seu `.env.local`.
+
+Clique em **Entrar** para autenticação real, usando a conta acadêmica pré-preenchida importada pelo Keycloak. No DevTools, espere login 200 e lista 200; o indicador deve mostrar **API Online**. O botão **Explorar demonstração offline** usa apenas dados locais e não autentica nos serviços.
+
+O gateway é apenas para desenvolvimento Web: precisa do BFF rodando, não hospeda o backend e não configura acesso de um APK às portas privadas do Codespaces. No Android, use uma URL absoluta de backend acessível pelo dispositivo.
+
+Para Web fora do Codespaces, o comando direto continua disponível:
 
 ```bash
 npm run web -- --host lan --port 8083 --clear
 ```
 
-Abra a porta indicada no terminal. No Codespaces, use a aba **Portas**. A porta 8081 está reservada ao Keycloak; use 8083 para o Expo. Se estiver ocupada, encerre a instância anterior com Ctrl+C no terminal dela. Configure também a URL do BFF; abrir apenas a interface não valida a integração. Veja as limitações de CORS em [VALIDACAO.md](./docs/VALIDACAO.md).
+Em chamadas entre origens diferentes, configure `CORS_ORIGINS` no ambiente do BFF com as origens exatas, separadas por vírgula. O Compose usa por padrão `http://localhost:8083,http://localhost:8084`. Reconstrua/recrie o BFF ao mudar o código/ambiente. O gateway dispensa CORS entre portas no navegador.
 
 ### Android e geração do APK
 
@@ -192,9 +214,10 @@ Registre dispositivo, versão do Android, commit, origem dos dados e resultado d
 
 ### Limitações que precisam entrar na demonstração
 
-- O repositório de estações possui um seed fixo de fallback. Ele ajuda a demonstrar a interface quando a chamada falha, mas **não comprova consumo de dados reais**.
-- O login real persiste a sessão localmente. Quando não há resposta HTTP, o caso de uso retorna um usuário de demonstração sem token; isso inclui bloqueios de CORS. Portanto, entrar no app não comprova autenticação no Keycloak.
-- A telemetria possui cálculo local quando não chegam leituras WebSocket. Movimento no medidor, isoladamente, não comprova integração em tempo real.
+- O catálogo usa seed apenas em demonstração sem token. Para usuário autenticado, falhas da API são exibidas e não são substituídas por seed. **Demonstração não comprova consumo de dados reais**.
+- O login real persiste a sessão com expiração; sessões antigas/expiradas são descartadas na inicialização. Falhas de conexão não liberam login. O usuário pode escolher a demonstração explicitamente, sem token.
+- Na sessão autenticada, energia/potência vêm do WebSocket e o resumo final vem do billing (evento ou histórico). Sem leituras, não há cálculo local substituto. A demonstração continua simulada e seu resumo é identificado. A porcentagem de bateria é estimada para a demonstração, não recebida do carregador.
+- O backend atual encerra a recarga pelo carregador/simulador; cancelar uma reserva só é permitido antes do início. O app não oferece parada manual de uma recarga integrada em andamento.
 - O flow de favoritos verifica a aba, mas não encerra e reabre o aplicativo. Faça a verificação de persistência do roteiro acima.
 - O aplicativo está configurado em retrato e tema escuro. Paisagem e alternância de tema não estão declaradas como funcionalidades concluídas.
 
@@ -212,4 +235,4 @@ Ainda é necessário registrar lista com busca/filtro, detalhe e favoritos após
 
 ## Situação da validação
 
-Consulte o [roteiro e as pendências de integração](./docs/VALIDACAO.md). Os resultados de testes automatizados são registrados nesse documento. A integração completa e o build Android continuam pendentes; as capturas acima não os substituem.
+Consulte o [roteiro e as pendências de integração](./docs/VALIDACAO.md). Os resultados de testes automatizados são registrados nesse documento. Os contratos corrigidos foram testados com servidores locais de teste; a validação de toda a stack no Codespaces e o build Android continuam pendentes. As capturas acima foram feitas antes da correção e não os substituem.

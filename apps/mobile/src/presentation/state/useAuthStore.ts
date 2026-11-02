@@ -17,6 +17,7 @@ interface AuthState {
   initialize: () => Promise<void>;
   login: (email?: string, password?: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  enterDemo: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -47,7 +48,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
+  enterDemo: () => set({ user: User.offlineDemo(), error: null }),
+
   logout: async () => {
+    const { useLiveChargingStore } = await import('./useLiveChargingStore');
+    useLiveChargingStore.getState().reset();
     await authRepository.logout();
     set({ user: null, error: null });
   },

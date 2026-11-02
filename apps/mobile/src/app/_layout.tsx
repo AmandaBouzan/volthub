@@ -29,7 +29,7 @@ export default function RootLayout() {
   }, [user?.sub]);
 
   const HeaderStatusBadge = () => {
-    const isApi = dataSource === 'API';
+    const isApi = dataSource === 'API' && !user?.isOffline;
     return (
       <View style={styles.headerRight}>
         <Pressable
@@ -38,7 +38,7 @@ export default function RootLayout() {
         >
           <View style={[styles.dot, { backgroundColor: isApi ? colors.primary : colors.warning }]} />
           <Text style={[styles.statusText, { color: isApi ? colors.primary : colors.warning }]}>
-            {isApi ? `API Online${user?.name ? ` · ${user.name.split(' ')[0]}` : ''}` : 'Modo Offline'}
+            {isApi ? `API Online${user?.name ? ` · ${user.name.split(' ')[0]}` : ''}` : user?.isOffline ? 'Demonstração Offline' : 'API indisponível'}
           </Text>
         </Pressable>
         <Pressable testID="logout-button" accessibilityLabel="Sair" onPress={logout} hitSlop={8} style={styles.logout}>

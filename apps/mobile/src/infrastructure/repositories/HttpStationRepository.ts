@@ -21,7 +21,7 @@ export class HttpStationRepository implements IStationRepository {
     const path = qs ? `/api/v1/stations?${qs}` : '/api/v1/stations';
 
     const res = await apiClient.request<StationDto[]>(path, {
-      timeoutMs: 3500,
+      timeoutMs: 10000,
       token: filter?.token,
     });
     if (res.ok) {
@@ -33,6 +33,8 @@ export class HttpStationRepository implements IStationRepository {
         return Result.err(err as Error);
       }
     }
+
+    if (filter?.token) return res; // Sessão real nunca é substituída silenciosamente pelo seed.
 
     // Degradação graciosa: se o BFF não estiver rodando localmente, usa o seed das 10 estações de BH
     try {
@@ -46,7 +48,7 @@ export class HttpStationRepository implements IStationRepository {
 
   async getStationById(id: string, token?: string): Promise<Result<Station>> {
     const res = await apiClient.request<StationDto>(`/api/v1/stations/${encodeURIComponent(id)}`, {
-      timeoutMs: 3500,
+      timeoutMs: 10000,
       token,
     });
     if (res.ok) {
@@ -58,6 +60,8 @@ export class HttpStationRepository implements IStationRepository {
         return Result.err(err as Error);
       }
     }
+
+    if (token) return res;
 
     const found = FALLBACK_STATIONS_SEED.find((s) => s.id === id);
     if (found) {

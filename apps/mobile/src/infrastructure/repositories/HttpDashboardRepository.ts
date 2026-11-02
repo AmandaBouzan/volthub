@@ -6,6 +6,7 @@ import { apiClient } from '../api/apiClient';
 
 interface InvoiceDto {
   id?: string;
+  invoiceId?: string;
   sessionId?: string;
   chargerId: string;
   energyKwh: number;
@@ -30,7 +31,7 @@ export class HttpDashboardRepository implements IDashboardRepository {
   async getDriverDashboard(token: string): Promise<Result<DriverDashboardData>> {
     const res = await apiClient.request<DashboardResponseDto>('/api/v1/dashboard', {
       token,
-      timeoutMs: 4000,
+      timeoutMs: 10000,
     });
 
     if (!res.ok) return res;
@@ -40,7 +41,7 @@ export class HttpDashboardRepository implements IDashboardRepository {
       const invoices = (dto.invoices ?? []).map(
         (inv, idx) =>
           new Invoice({
-            id: inv.id ?? inv.sessionId ?? `inv-${idx}`,
+            id: inv.invoiceId ?? inv.id ?? inv.sessionId ?? `inv-${idx}`,
             sessionId: inv.sessionId ?? `sess-${idx}`,
             chargerId: inv.chargerId,
             energyKwh: Number(inv.energyKwh ?? 0),

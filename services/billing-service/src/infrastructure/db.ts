@@ -87,9 +87,9 @@ export class PgSessionStore implements SessionStore {
     await this.pool.query('UPDATE invoices SET published_at = now() WHERE invoice_id = $1', [invoiceId]);
   }
 
-  async invoicesOf(driverId: string): Promise<Invoice[]> {
+  async invoicesOf(driverId: string): Promise<(Invoice & { issuedAt: string })[]> {
     const r = await this.pool.query('SELECT * FROM invoices WHERE driver_id = $1 ORDER BY issued_at DESC', [driverId]);
-    return r.rows.map(toInvoice);
+    return r.rows.map(row => ({ ...toInvoice(row), issuedAt: new Date(row.issued_at).toISOString() }));
   }
 
   async allInvoices(): Promise<(Invoice & { issuedAt: string })[]> {

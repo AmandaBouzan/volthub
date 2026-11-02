@@ -5,7 +5,7 @@ import { IStationRepository } from '@/domain/repositories/IStationRepository';
 export class GetStationByIdUseCase {
   constructor(private readonly stationRepository: IStationRepository) {}
 
-  async execute(id: string): Promise<Result<Station>> {
-    return this.stationRepository.getStationById(id);
+  async execute(id: string, token?: string): Promise<Result<Station>> {
+    return this.stationRepository.getStationById(id, token);
   }
 }

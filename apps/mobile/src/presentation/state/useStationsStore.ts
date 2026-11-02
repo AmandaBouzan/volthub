@@ -20,7 +20,7 @@ interface StationsState {
   error: string | null;
   searchQuery: string;
   activeFilter: 'ALL' | 'AVAILABLE' | 'FAST' | 'CCS2' | 'TYPE2';
-  dataSource: 'API' | 'FALLBACK';
+  dataSource: 'API' | 'FALLBACK' | 'UNAVAILABLE';
 
   // Actions
   fetchStations: (refresh?: boolean) => Promise<void>;
@@ -39,7 +39,7 @@ export const useStationsStore = create<StationsState>((set, get) => ({
   error: null,
   searchQuery: '',
   activeFilter: 'ALL',
-  dataSource: 'API',
+  dataSource: 'UNAVAILABLE',
 
   fetchStations: async (refresh = false) => {
     set({ loading: !refresh, refreshing: refresh, error: null });
@@ -67,12 +67,13 @@ export const useStationsStore = create<StationsState>((set, get) => ({
         loading: false,
         refreshing: false,
         error: res.error.message,
+        dataSource: 'UNAVAILABLE',
       });
     }
   },
 
   fetchStationById: async (id: string) => {
-    const res = await getStationByIdUseCase.execute(id);
+    const res = await getStationByIdUseCase.execute(id, useAuthStore.getState().user?.token || undefined);
     if (res.ok) {
       set({ selectedStation: res.value });
       return res.value;
@@ -106,6 +107,7 @@ export const useStationsStore = create<StationsState>((set, get) => ({
     // Refina a lista via parâmetro real da API (Feature 4)
     getStationsUseCase
       .execute({
+        token: useAuthStore.getState().user?.token || undefined,
         status: filter === 'AVAILABLE' ? 'AVAILABLE' : undefined,
         fastOnly: filter === 'FAST' ? true : undefined,
         connector: filter === 'CCS2' || filter === 'TYPE2' ? filter : undefined,
@@ -118,7 +120,9 @@ export const useStationsStore = create<StationsState>((set, get) => ({
             onlyFast: filter === 'FAST',
             connector: filter === 'CCS2' || filter === 'TYPE2' ? filter : undefined,
           });
-          set({ filteredStations: apiFiltered });
+          set({ filteredStations: apiFiltered, dataSource: stationRepository.lastSource, error: null });
+        } else if (!res.ok && get().activeFilter === filter) {
+          set({ error: res.error.message, dataSource: 'UNAVAILABLE' });
         }
       });
   },

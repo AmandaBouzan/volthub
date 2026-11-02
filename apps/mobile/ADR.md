@@ -36,7 +36,7 @@ A linguagem comum e a base compartilhada reduzem duplicação, mas não eliminam
 
 Zustand não fornece cache remoto, expiração ou cancelamento de requisições automaticamente; essas políticas precisam ser implementadas quando necessárias. AsyncStorage atende aos favoritos, mas não é armazenamento seguro para credenciais: a sessão atual também passa por essa abstração, ponto a revisar antes de uso fora da demonstração.
 
-O seed local de estações e a telemetria calculada no cliente são recursos de demonstração/degradação. Não comprovam integração com serviços reais; a apresentação deve distinguir esses modos. O login entra em sessão de demonstração quando a falha não possui status HTTP (incluindo falha de rede ou CORS). Erros HTTP não acionam esse fallback. O BFF desta branch ainda não implementa a rota de login esperada pelo app; a integração precisa ser concluída antes de ser apresentada como funcional.
+O seed local de estações e a telemetria calculada no cliente são recursos de demonstração/degradação. Não comprovam integração com serviços reais; a apresentação deve distinguir esses modos. Falhas de autenticação/rede não liberam acesso. A demonstração é uma escolha explícita sem token. O BFF implementa o contrato mobile de login usando o Direct Access Grant já habilitado no realm acadêmico; o SPA mantém PKCE. Para evoluir a autenticação do mobile, a alternativa é Authorization Code com PKCE, com fluxo de redirecionamento próprio. Na sessão integrada, energia vem do WebSocket e a fatura vem do billing. O gateway de desenvolvimento mantém HTTP e WS na mesma origem privada do Codespaces.
 
 ## Validação da decisão
 

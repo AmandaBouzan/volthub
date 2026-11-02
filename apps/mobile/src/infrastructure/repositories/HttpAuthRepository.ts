@@ -23,7 +23,7 @@ export class HttpAuthRepository implements IAuthRepository {
     const res = await apiClient.request<LoginResponseDto>('/api/v1/auth/login', {
       method: 'POST',
       body: credentials ?? {},
-      timeoutMs: 5000,
+      timeoutMs: 10000,
     });
 
     if (!res.ok) {
@@ -48,18 +48,23 @@ export class HttpAuthRepository implements IAuthRepository {
       name: user.name,
       roles: user.roles,
       token: user.token,
+      expiresAt: Date.now() + (u.expiresIn ?? 900) * 1000,
     });
 
     return Result.ok(user);
   }
 
   async getStoredUser(): Promise<Result<User | null>> {
-    const res = await storage.getItem<{ sub: string; name: string; roles: string[]; token: string }>(
+    const res = await storage.getItem<{ sub: string; name: string; roles: string[]; token: string; expiresAt?: number }>(
       USER_SESSION_KEY
     );
     if (!res.ok) return res;
     if (!res.value) return Result.ok(null);
 
+    if (!res.value.expiresAt || res.value.expiresAt <= Date.now()) {
+      await storage.removeItem(USER_SESSION_KEY);
+      return Result.ok(null);
+    }
     return Result.ok(new User(res.value));
   }
 
