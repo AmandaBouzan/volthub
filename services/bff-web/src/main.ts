@@ -4,7 +4,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { config } from './config.js';
-import { createAuth } from './auth.js';
+import { registerMobileRoutes } from './mobile-routes.js';
 import { Downstream, ServiceUnavailableError, UpstreamError } from './downstream.js';
 import { RealtimeHub } from './realtime.js';
 
@@ -17,7 +17,7 @@ const billing = new Downstream('billing-service', config.services.billing);
 const simulator = new Downstream('charger-simulator', config.services.simulator);
 const downstreams = [stations, reservations, billing];
 
-const { verify, guard } = createAuth(config.oidc);
+const { verify, guard } = await registerMobileRoutes(app, { oidc: config.oidc, corsOrigins: config.corsOrigins, stations });
 const hub = new RealtimeHub(app.log);
 
 // POST sem corpo (ex.: /start) é válido mesmo com content-type JSON
@@ -52,14 +52,6 @@ app.get('/health', async () => ({ status: 'UP', websocketClients: hub.connected 
 app.get('/api/v1/resilience', async () => downstreams.map((d) => d.state()));
 
 // ───────── Motorista ─────────
-app.get('/api/v1/stations', { preHandler: guard() }, async (req, reply) => {
-  try {
-    return await stations.call({ path: '/v1/stations', token: req.principal!.token });
-  } catch (err) {
-    return relay(reply, err);
-  }
-});
-
 /**
  * Agregação: UMA chamada do app → TRÊS serviços em paralelo, numa resposta pensada para a tela.
  * Degradação graciosa: se um serviço cair, a tela ainda abre com o que deu certo.

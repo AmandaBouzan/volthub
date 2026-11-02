@@ -12,7 +12,8 @@ export class OpenChargingSessionUseCase {
   async execute(
     chargerId: string,
     token: string,
-    isCancelled: () => boolean = () => false
+    isCancelled: () => boolean = () => false,
+    onReserved: (id: string, sessionId?: string | null) => void = () => {}
   ): Promise<string | null> {
     let created = await this.reservationRepository.create(chargerId, token);
 
@@ -23,6 +24,10 @@ export class OpenChargingSessionUseCase {
       const reservation = active.ok ? active.value : null;
       if (reservation) {
         if (reservation.chargerId === chargerId) {
+          if (reservation.status === 'IN_PROGRESS') {
+            onReserved(reservation.id, reservation.sessionId);
+            return reservation.id;
+          }
           created = { ok: true, value: { id: reservation.id } };
         } else if (reservation.status === 'CONFIRMED') {
           await this.reservationRepository.cancel(reservation.id, token);
@@ -40,7 +45,12 @@ export class OpenChargingSessionUseCase {
       return null;
     }
 
-    await this.reservationRepository.start(reservationId, token);
+    onReserved(reservationId);
+    const started = await this.reservationRepository.start(reservationId, token);
+    if (!started.ok) {
+      await this.reservationRepository.cancel(reservationId, token);
+      return null;
+    }
 
     if (isCancelled()) {
       await this.reservationRepository.cancel(reservationId, token);

@@ -31,7 +31,7 @@ class FakeReservationRepository implements IReservationRepository {
     return Result.ok(undefined);
   }
 
-  async start(id: string) {
+  async start(id: string): Promise<Result<void>> {
     this.calls.push(`start:${id}`);
     this.afterCall('start');
     return Result.ok(undefined);
@@ -108,4 +108,31 @@ test('OpenChargingSession retorna null sem reserva quando a API falha', async ()
 
   assert.equal(id, null);
   assert.deepEqual(repo.calls, ['create:BH-LOU-01', 'findActive']);
+});
+
+
+test('OpenChargingSession compensa a reserva se o start falha', async () => {
+  const repo = new FakeReservationRepository();
+  repo.start = async (id: string) => { repo.calls.push(`start:${id}`); return Result.err(new NetworkError('Start indisponível')); };
+  const id = await new OpenChargingSessionUseCase(repo).execute('BH-LOU-01', 'tkn');
+  assert.equal(id, null);
+  assert.deepEqual(repo.calls, ['create:BH-LOU-01', 'start:resv-1', 'cancel:resv-1']);
+});
+
+test('OpenChargingSession informa reserva antes do start para correlacionar eventos', async () => {
+  const repo = new FakeReservationRepository();
+  await new OpenChargingSessionUseCase(repo).execute('BH-LOU-01', 'tkn', () => false, id => {
+    assert.equal(id, 'resv-1'); assert.deepEqual(repo.calls, ['create:BH-LOU-01']);
+  });
+});
+
+
+test('OpenChargingSession reaproveita sessão em andamento sem enviar outro start', async () => {
+  const repo = new FakeReservationRepository();
+  repo.createResults = [Result.err(new NetworkError('Conflict', undefined, 409))];
+  repo.active = { id: 'existing', chargerId: 'BH-LOU-01', status: 'IN_PROGRESS', sessionId: 'session-1' };
+  const id = await new OpenChargingSessionUseCase(repo).execute('BH-LOU-01', 'tkn', () => false, (reservation, session) => {
+    assert.equal(reservation, 'existing'); assert.equal(session, 'session-1');
+  });
+  assert.equal(id, 'existing'); assert.deepEqual(repo.calls, ['create:BH-LOU-01', 'findActive']);
 });

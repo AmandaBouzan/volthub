@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { resolveApiUrls } from './apiUrls';
 
 const getBaseUrl = (): string => {
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -11,12 +12,4 @@ const getBaseUrl = (): string => {
   return 'http://localhost:3000';
 };
 
-const getWsUrl = (): string => {
-  const base = getBaseUrl();
-  return base.replace(/^http/, 'ws') + '/ws';
-};
-
-export const env = {
-  apiUrl: getBaseUrl(),
-  wsUrl: getWsUrl(),
-};
+export const env = resolveApiUrls(getBaseUrl(), typeof window !== 'undefined' ? window.location?.origin : 'http://localhost:8084');

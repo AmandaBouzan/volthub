@@ -7,6 +7,8 @@ import { spacing, radii } from '../../theme/spacing';
 
 interface LiveChargingGaugeProps {
   isCharging: boolean;
+  demo: boolean;
+  waitingInvoice: boolean;
   powerKw: number;
   energyKwh: number;
   targetKwh: number;
@@ -23,6 +25,8 @@ interface LiveChargingGaugeProps {
 
 export const LiveChargingGauge: React.FC<LiveChargingGaugeProps> = ({
   isCharging,
+  demo,
+  waitingInvoice,
   powerKw,
   energyKwh,
   targetKwh,
@@ -53,15 +57,15 @@ export const LiveChargingGauge: React.FC<LiveChargingGaugeProps> = ({
         <View style={[styles.outerRing, styles.outerRingActive]}>
           <View style={styles.innerRing}>
             <Ionicons name="checkmark-circle" size={44} color={colors.primary} />
-            <Text style={styles.completedTitle}>Recarga Concluída!</Text>
+            <Text style={styles.completedTitle}>{lastInvoice.source === 'DEMO' ? 'Demonstração concluída' : 'Recarga encerrada'}</Text>
             <Text style={styles.energyValue}>{lastInvoice.energyKwh.toFixed(2)}</Text>
-            <Text style={styles.energyUnit}>kWh entregues · Bateria 100%</Text>
+            <Text style={styles.energyUnit}>kWh entregues</Text>
           </View>
         </View>
 
         <View style={styles.invoiceCard}>
           <View style={styles.invoiceHeader}>
-            <Text style={styles.invoiceTitle}>⚡ Fatura da Sessão</Text>
+            <Text style={styles.invoiceTitle}>{lastInvoice.source === 'DEMO' ? '⚡ Resumo de demonstração' : '⚡ Fatura do Billing Service'}</Text>
             <Text style={styles.invoiceTime}>{lastInvoice.issuedAt}</Text>
           </View>
           <View style={styles.invoiceRow}>
@@ -87,7 +91,7 @@ export const LiveChargingGauge: React.FC<LiveChargingGaugeProps> = ({
             </Text>
           </View>
           <View style={[styles.invoiceRow, styles.invoiceTotalRow]}>
-            <Text style={styles.invoiceTotalLabel}>Total Faturado</Text>
+            <Text style={styles.invoiceTotalLabel}>{lastInvoice.source === 'DEMO' ? 'Total Simulado' : 'Total Faturado'}</Text>
             <Text style={styles.costAmount}>
               {lastInvoice.totalAmount.toLocaleString('pt-BR', {
                 style: 'currency',
@@ -124,7 +128,7 @@ export const LiveChargingGauge: React.FC<LiveChargingGaugeProps> = ({
 
               <Text style={styles.energyValue}>{energyKwh.toFixed(2)}</Text>
               <Text style={styles.energyUnit}>
-                de {targetKwh.toFixed(0)} kWh · Bateria {batteryPercent}%
+                de {targetKwh.toFixed(0)} kWh · Bateria estimada {batteryPercent}%
               </Text>
 
               {/* Barra de Progresso da Bateria */}
@@ -173,6 +177,7 @@ export const LiveChargingGauge: React.FC<LiveChargingGaugeProps> = ({
           isCharging ? styles.actionBtnStop : styles.actionBtnStart,
           pressed && { opacity: 0.88 },
         ]}
+        disabled={(isCharging && !demo) || waitingInvoice}
         onPress={isCharging ? onStop : onStart}
       >
         <Ionicons
@@ -187,7 +192,7 @@ export const LiveChargingGauge: React.FC<LiveChargingGaugeProps> = ({
             { color: isCharging ? colors.textPrimary : colors.textInverse },
           ]}
         >
-          {isCharging ? 'Encerrar Recarga' : 'Simular Início de Recarga'}
+          {waitingInvoice ? 'Aguardando fatura' : isCharging ? (demo ? 'Encerrar demonstração' : 'Aguardando encerramento pelo carregador') : demo ? 'Simular Início de Recarga' : 'Iniciar Recarga'}
         </Text>
       </Pressable>
     </View>
