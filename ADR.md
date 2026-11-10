@@ -1,6 +1,6 @@
-# ADR — React Native com Expo para o VoltHub Mobile
+# ADR — Decisões de arquitetura do VoltHub Mobile
 
-**Status:** adotada na implementação
+**Status:** decisões adotadas na implementação
 
 ## Contexto
 
@@ -8,19 +8,27 @@ O VoltHub já possui um backend para gerenciar eletropostos. O trabalho da disci
 
 O aplicativo precisa consumir a API do VoltHub, persistir favoritos no dispositivo e ser demonstrável em Android. Uma versão web facilita a validação da interface durante o desenvolvimento.
 
-## Opções avaliadas neste ADR
+## Decisões
 
-| Opção | Vantagens | Custos para este projeto |
-|---|---|---|
-| React Native com Expo | Compartilha telas e regras em TypeScript. O Expo Router organiza a navegação e o projeto pode rodar em Android e no navegador. | Exige alinhar as versões do Expo SDK e das dependências nativas. Algumas diferenças de plataforma precisam ser testadas separadamente. |
-| Flutter | Permite compartilhar a interface e oferece componentes próprios para manter a consistência visual entre plataformas. | Introduz Dart e um conjunto de ferramentas específico para o app. |
-| Kotlin Multiplatform com Compose | Permite compartilhar regras e interface em Kotlin e oferece integração com o ecossistema Android. | Introduz a configuração dos alvos do Gradle e exige validar o suporte das bibliotecas em cada plataforma escolhida. |
+### Framework — React Native com Expo e TypeScript
 
-## Decisão
+A experiência da equipe com TypeScript e o reaproveitamento de telas e regras entre Android, iOS e web orientaram a escolha. O projeto usa Expo para organizar o desenvolvimento multiplataforma. Flutter exigiria adotar Dart, e Kotlin Multiplatform com Compose exigiria configurar os alvos no Gradle e validar as bibliotecas por plataforma. A escolha exige manter o Expo SDK alinhado às dependências nativas e validar cada plataforma separadamente.
 
-Adotar **React Native com Expo e TypeScript**. A mesma base atende à navegação, à busca, aos filtros e aos favoritos no Android e na web. O Expo Router organiza as telas e reduz o trabalho de configurar a navegação. Para este escopo, a equipe pode concentrar o desenvolvimento na jornada de consulta aos eletropostos e na integração com o backend existente.
+### Estado — Zustand
 
-A interface chama casos de uso, que dependem de contratos de repositório. A infraestrutura implementa esses contratos com chamadas HTTP ao BFF e armazenamento local. A listagem consulta `GET /api/v1/stations` e o login usa `POST /api/v1/auth/login`. Os favoritos guardam os identificadores das estações com AsyncStorage no Android e armazenamento local no navegador.
+As stores concentram o estado de autenticação, estações, favoritos e recarga. A store de estações consegue ler o token diretamente da store de autenticação com `getState()`, inclusive fora de componentes. Redux Toolkit traria mais estrutura do que o escopo atual exige. Context API exigiria organizar providers e uma forma separada de consultar o estado fora da árvore React. Os casos de uso concentram as regras, e as stores coordenam as ações e o estado da interface.
+
+### Navegação — Expo Router
+
+As rotas seguem os arquivos em `src/app/`, incluindo a rota dinâmica de detalhe da estação. Isso facilita links diretos para telas específicas. As abas usam `Tabs.Protected` para liberar as telas de acordo com a sessão. A configuração manual com React Navigation exigiria manter explicitamente o mapa de rotas e a configuração de links. Com o Expo Router, a estrutura dos arquivos faz parte do contrato de navegação.
+
+### Persistência — AsyncStorage
+
+O app guarda os IDs das estações favoritas como dados de chave e valor usando AsyncStorage. No navegador, a implementação usa o armazenamento local. MMKV foi considerado pelo desempenho, mas esse ganho tem pouco impacto para um conjunto pequeno de IDs. SQLite faria sentido se houvesse consultas, relacionamentos ou um volume maior de dados. Os favoritos permanecem no dispositivo ou navegador em que foram salvos.
+
+## Integração com o backend
+
+A interface chama casos de uso, que dependem de contratos de repositório. A infraestrutura implementa esses contratos com chamadas HTTP ao BFF e armazenamento local. A listagem consulta `GET /api/v1/stations` e o login usa `POST /api/v1/auth/login`.
 
 ## Consequências
 
