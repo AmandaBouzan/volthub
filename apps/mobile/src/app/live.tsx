@@ -1,14 +1,18 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore } from '@/presentation/state/useAuthStore';
 import { useLiveChargingStore } from '@/presentation/state/useLiveChargingStore';
 import { LiveChargingGauge } from '@/presentation/components/charging/LiveChargingGauge';
 import { colors } from '@/presentation/theme/colors';
 import { spacing, radii } from '@/presentation/theme/spacing';
 
 export default function LiveChargingScreen() {
+  const demo = useAuthStore(s => s.user?.isOffline ?? false);
   const {
     isCharging,
+    pendingInvoice,
+    error,
     powerKw,
     energyKwh,
     targetKwh,
@@ -32,6 +36,8 @@ export default function LiveChargingScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {error && <Text accessibilityRole="alert" style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text>}
+      {pendingInvoice && <Text style={{ color: colors.warning, marginBottom: 12 }}>Aguardando a fatura do billing-service. Atualize o histórico se a conexão cair.</Text>}
       {degradedServices.length > 0 && (
         <View style={styles.degradedBanner}>
           <Ionicons name="warning" size={16} color={colors.warning} style={{ marginRight: 6 }} />
@@ -50,6 +56,8 @@ export default function LiveChargingScreen() {
 
       <LiveChargingGauge
         isCharging={isCharging}
+        demo={demo}
+        waitingInvoice={pendingInvoice}
         powerKw={powerKw}
         energyKwh={energyKwh}
         targetKwh={targetKwh}

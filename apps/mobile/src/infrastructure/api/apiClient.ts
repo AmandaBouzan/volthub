@@ -43,7 +43,11 @@ export const apiClient = {
       clearTimeout(timeoutId);
 
       const text = await response.text();
-      const data = text ? JSON.parse(text) : null;
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch {
+        if (response.ok) return Result.err(new NetworkError('Resposta inválida do servidor', undefined, response.status));
+        // Preserva o status até quando o proxy devolve HTML em um erro HTTP.
+      }
 
       if (!response.ok) {
         return Result.err(

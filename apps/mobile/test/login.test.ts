@@ -39,13 +39,12 @@ test('LoginUseCase mantém o erro quando as credenciais são recusadas', async (
   assert.equal(res.error.message, 'E-mail ou senha inválidos');
 });
 
-test('LoginUseCase entra em modo offline quando o servidor não responde', async () => {
+test('LoginUseCase mostra falha de conexão sem autenticar em demonstração', async () => {
   const repo = new FakeAuthRepository(Result.err(new NetworkError('Falha na conexão com o servidor')));
   const res = await new LoginUseCase(repo).execute({ email: 'a@b.com', password: 'x' });
 
-  assert.ok(res.ok);
-  assert.equal(res.value.isOffline, true);
-  assert.equal(res.value.token, '');
+  assert.ok(!res.ok);
+  assert.equal(res.error.message, 'Falha na conexão com o servidor');
 });
 
 test('LoginUseCase não cai no offline quando o servidor responde com erro HTTP', async () => {

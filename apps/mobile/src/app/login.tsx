@@ -14,12 +14,12 @@ import { useAuthStore } from '@/presentation/state/useAuthStore';
 import { colors } from '@/presentation/theme/colors';
 import { spacing, radii } from '@/presentation/theme/spacing';
 
-// Credenciais do motorista de demonstração (mesmas que o BFF usa por padrão e o Keycloak importa)
+// Credenciais do motorista de demonstração (importadas pelo Keycloak para o ambiente acadêmico)
 const DEMO_EMAIL = 'motorista@volthub.com';
 const DEMO_PASSWORD = 'motorista123';
 
 export default function LoginScreen() {
-  const { login, loading, error } = useAuthStore();
+  const { login, enterDemo, loading, error } = useAuthStore();
   const [email, setEmail] = useState(DEMO_EMAIL);
   const [password, setPassword] = useState(DEMO_PASSWORD);
 
@@ -92,9 +92,9 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
-      <Text style={styles.hint}>
-        Sem conexão com o servidor, o app entra em modo offline com os dados de demonstração.
-      </Text>
+      <Pressable testID="login-demo" onPress={enterDemo} disabled={loading}>
+        <Text style={styles.hint}>Explorar demonstração offline</Text>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }

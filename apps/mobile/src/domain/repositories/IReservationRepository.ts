@@ -4,6 +4,7 @@ export interface ActiveReservation {
   id: string;
   chargerId: string;
   status: string;
+  sessionId?: string | null;
 }
 
 export interface IReservationRepository {

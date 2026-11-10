@@ -8,7 +8,10 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "web:codespaces": "node scripts/web-codespaces.mjs",
+    "test:gateway": "node --test test/dev-gateway.test.mjs",
+    "test:integration": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",
@@ -32,8 +35,11 @@
   "devDependencies": {
     "@types/node": "^26.6.5",
     "@types/react": "~19.2.2",
+    "esbuild": "^0.28.2",
+    "http-proxy-middleware": "^3.0.10",
     "tsx": "^4.23.15",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "ws": "^8.22.1"
   },
   "private": true
 }

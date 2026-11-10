@@ -1,13 +1,24 @@
 # Passa pela tela de login com as credenciais de demonstração (pré-preenchidas).
-# Sem BFF o app entra em modo offline; com BFF autentica de verdade.
+# Por padrão usa demonstração explícita, pois os flows esperam IDs do seed.
+# Para login real: maestro test -e LIVE_BACKEND=true flows/ (dados devem ser compatíveis).
 appId: com.volthub.mobile
 ---
 - extendedWaitUntil:
     visible:
       id: "login-screen"
     timeout: 30000
-- tapOn:
-    id: "login-submit"
+- runFlow:
+    when:
+      true: ${typeof LIVE_BACKEND !== "undefined" && LIVE_BACKEND == "true"}
+    commands:
+      - tapOn:
+          id: "login-submit"
+- runFlow:
+    when:
+      true: ${typeof LIVE_BACKEND === "undefined" || LIVE_BACKEND != "true"}
+    commands:
+      - tapOn:
+          id: "login-demo"
 - extendedWaitUntil:
     visible:
       id: "tab-stations"
