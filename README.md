@@ -218,8 +218,7 @@ Parar: `./stop.sh` (mantém dados) ou `./stop.sh --limpar` (apaga tudo).
 | 6 | Trace atravessando HTTP → Outbox → Kafka → MQTT | Grafana → Explore → Tempo |
 | 7 | Kubernetes: self-healing (fora do Compose, cluster separado) | `./k8s/deploy.sh` e `k8s/README.md` |
 
-Todos os scripts estão em [`scripts/`](scripts) e usam a API do `bff-web` (`http://localhost:3000`) autenticada
-com um token real do Keycloak — nada é mockado. São idempotentes o suficiente para rodar de novo caso algo falhe.
+Todos os scripts estão em [`scripts/`](scripts) e usam a API do `bff-web` (`http://localhost:3000`) autenticada com um token real do Keycloak — nada é mockado. São idempotentes o suficiente para rodar de novo caso algo falhe.
 
 | Script | O que faz |
 |---|---|
@@ -306,3 +305,15 @@ volthub/
 ├── scripts/                  ← demos, geração de tráfego, token de auth e validação de contratos
 └── .github/workflows/        ← CI (Java, Node, contratos, imagens Docker)
 ```
+
+## Screenshots do app
+
+![Mapa com os pontos de recarga](./docs/screenshots/01-mapa.png)
+
+![Login no app](./docs/screenshots/02-login.png)
+
+![Dados da estação de carga](./docs/screenshots/03-estacoes.png)
+
+![Detalhes da estação de recarga](./docs/screenshots/03-detalhes.png)
+
+![Sessão de recarga](./docs/screenshots/04-recarga-ao-vivo.png)
